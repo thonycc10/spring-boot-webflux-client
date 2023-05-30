@@ -1,7 +1,10 @@
 package com.ac.springbootwebfluxclient.services;
 
 import com.ac.springbootwebfluxclient.model.Product;
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -71,5 +74,20 @@ public class ProductServiceImpl implements ProductService {
                 .uri("/{id}", Collections.singletonMap("id", id))
                 .retrieve()
                 .bodyToMono(Void.class);
+    }
+
+    @Override
+    public Mono<Product> update(FilePart file, String id) {
+        MultipartBodyBuilder parts = new MultipartBodyBuilder();
+        parts.asyncPart("file", file.content(), DataBuffer.class).headers(h -> {
+            h.setContentDispositionFormData("file", file.filename());
+        });
+
+        return webClient.post()
+                .uri("/upload/{id}", Collections.singletonMap("id", id))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(parts.build())
+                .retrieve()
+                .bodyToMono(Product.class);
     }
 }

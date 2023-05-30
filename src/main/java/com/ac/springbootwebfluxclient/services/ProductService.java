@@ -1,6 +1,7 @@
 package com.ac.springbootwebfluxclient.services;
 
 import com.ac.springbootwebfluxclient.model.Product;
+import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -10,5 +11,5 @@ public interface ProductService {
     public Mono<Product> save(Product product);
     public Mono<Product> update(Product product, String id);
     public Mono<Void> delete(String id);
-
+    public Mono<Product> update(FilePart file, String id);
 }
