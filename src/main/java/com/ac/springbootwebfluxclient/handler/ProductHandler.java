@@ -36,21 +36,12 @@ public class ProductHandler {
     public Mono<ServerResponse> view(ServerRequest request) {
         String id = request.pathVariable("id");
 
-        return service.findById(id).flatMap(p -> ServerResponse.ok()
+        return errorHandler(
+                service.findById(id).flatMap(p -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(p)
                         .switchIfEmpty(ServerResponse.notFound().build()))
-                .onErrorResume(error -> {
-                    WebClientResponseException errorWebClientResponseException = (WebClientResponseException) error;
-                    if (errorWebClientResponseException.getStatusCode() == HttpStatus.NOT_FOUND) {
-                        Map<String, Object> body = new HashMap<>(); // importante para retornar un error en json usar Map
-                        body.put("error", error.getMessage());
-                        body.put("timestamp", new Date());
-                        body.put("status", ((WebClientResponseException) error).getStatusCode().value());
-                        return ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(body);
-                    }
-                    return Mono.error(errorWebClientResponseException);
-                });
+        );
     }
 
     public Mono<ServerResponse> create(ServerRequest request) {
@@ -79,51 +70,53 @@ public class ProductHandler {
         Mono<Product> productMono = request.bodyToMono(Product.class);
         String id = request.pathVariable("id");
 
-        return productMono
-                .flatMap(p -> service.update(p, id))
-                .flatMap(p ->
-                        ServerResponse
-                                .created(URI.create("/api/client/".concat(p.getId())))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .bodyValue(p))
-                .onErrorResume(error -> {
-                    WebClientResponseException errorWebClientResponseException = (WebClientResponseException) error;
-                    if (errorWebClientResponseException.getStatusCode() == HttpStatus.NOT_FOUND) {
-                        return ServerResponse.notFound().build();
-                    }
-                    return Mono.error(errorWebClientResponseException);
-                });
+        return errorHandler(
+                productMono
+                        .flatMap(p -> service.update(p, id))
+                        .flatMap(p ->
+                                ServerResponse
+                                        .created(URI.create("/api/client/".concat(p.getId())))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .bodyValue(p))
+        );
     }
 
     public Mono<ServerResponse> delete(ServerRequest request) {
         String id = request.pathVariable("id");
-        return service.delete(id)
-                .then(ServerResponse.noContent().build())
-                .switchIfEmpty(ServerResponse.notFound().build())
-                .onErrorResume(error -> {
-                    WebClientResponseException errorWebClientResponseException = (WebClientResponseException) error;
-                    if (errorWebClientResponseException.getStatusCode() == HttpStatus.NOT_FOUND) {
-                        return ServerResponse.notFound().build();
-                    }
-                    return Mono.error(errorWebClientResponseException);
-                });
+
+        return errorHandler(
+                service.delete(id)
+                        .then(ServerResponse.noContent().build())
+                        .switchIfEmpty(ServerResponse.notFound().build())
+        );
     }
 
     public Mono<ServerResponse> upload(ServerRequest request) {
         String id = request.pathVariable("id");
-        return request.multipartData()
-                .map(multipart -> multipart.toSingleValueMap().get("file"))
-                .cast(FilePart.class)
-                .flatMap(file ->
-                        service.update(file, id))
-                .flatMap(p ->
-                        ServerResponse.created(URI.create("/api/client/".concat(p.getId())))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .bodyValue(p))
+
+        return errorHandler(
+                request.multipartData()
+                        .map(multipart -> multipart.toSingleValueMap().get("file"))
+                        .cast(FilePart.class)
+                        .flatMap(file ->
+                                service.update(file, id))
+                        .flatMap(p ->
+                                ServerResponse.created(URI.create("/api/client/".concat(p.getId())))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .bodyValue(p))
+        );
+    }
+
+    private Mono<ServerResponse> errorHandler(Mono<ServerResponse> responseMono) {
+        return responseMono
                 .onErrorResume(error -> {
                     WebClientResponseException errorWebClientResponseException = (WebClientResponseException) error;
                     if (errorWebClientResponseException.getStatusCode() == HttpStatus.NOT_FOUND) {
-                        return ServerResponse.notFound().build();
+                        Map<String, Object> body = new HashMap<>(); // importante para retornar un error en json usar Map
+                        body.put("error", error.getMessage());
+                        body.put("timestamp", new Date());
+                        body.put("status", ((WebClientResponseException) error).getStatusCode().value());
+                        return ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(body);
                     }
                     return Mono.error(errorWebClientResponseException);
                 });
